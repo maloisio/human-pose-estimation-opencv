@@ -6,7 +6,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', help='Path to image or video. Skip to capture frames from camera')
-parser.add_argument('--thr', default=0.2, type=float, help='Threshold value for pose parts heat map')
+parser.add_argument('--thr', default=0.1, type=float, help='Threshold value for pose parts heat map')
 parser.add_argument('--width', default=368, type=int, help='Resize input to specific width.')
 parser.add_argument('--height', default=368, type=int, help='Resize input to specific height.')
 
@@ -23,12 +23,13 @@ POSE_PAIRS = [ ["Neck", "RShoulder"], ["Neck", "LShoulder"], ["RShoulder", "RElb
                ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["Nose", "REye"],
                ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"] ]
 
-inWidth = args.width
-inHeight = args.height
+inWidth = 310
+inHeight = 310
 
 net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
 cap = cv.VideoCapture(args.input if args.input else 0)
+#cap = cv.VideoCapture("cbum3.jpg")
 
 while cv.waitKey(1) < 0:
     hasFrame, frame = cap.read()
@@ -52,7 +53,7 @@ while cv.waitKey(1) < 0:
 
         # Originally, we try to find all the local maximums. To simplify a sample
         # we just find a global one. However only a single pose at the same time
-        # could be detected this way.
+        # could be detected this wayy.
         _, conf, _, point = cv.minMaxLoc(heatMap)
         x = (frameWidth * point[0]) / out.shape[3]
         y = (frameHeight * point[1]) / out.shape[2]
