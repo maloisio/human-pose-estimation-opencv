@@ -1,8 +1,10 @@
 # To use Inference Engine backend, specify location of plugins:
 # export LD_LIBRARY_PATH=/opt/intel/deeplearning_deploymenttoolkit/deployment_tools/external/mklml_lnx/lib:$LD_LIBRARY_PATH
+import cv2
 import cv2 as cv
 import numpy as np
 import argparse
+from scipy.spatial import distance as dist
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', help='Path to image or video. Skip to capture frames from camera')
@@ -11,6 +13,7 @@ parser.add_argument('--width', default=368, type=int, help='Resize input to spec
 parser.add_argument('--height', default=368, type=int, help='Resize input to specific height.')
 
 args = parser.parse_args()
+
 
 BODY_PARTS = { "Nose": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
                "LShoulder": 5, "LElbow": 6, "LWrist": 7, "RHip": 8, "RKnee": 9,
@@ -21,16 +24,25 @@ POSE_PAIRS = [ ["Neck", "RShoulder"], ["Neck", "LShoulder"], ["RShoulder", "RElb
                ["RElbow", "RWrist"], ["LShoulder", "LElbow"], ["LElbow", "LWrist"],
                ["Neck", "RHip"], ["RHip", "RKnee"], ["RKnee", "RAnkle"], ["Neck", "LHip"],
                ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["Nose", "REye"],
-               ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"] ]
+               ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"],["RShoulder", "LShoulder"] ]
 
-inWidth = 310
-inHeight = 310
+inWidth = 270
+inHeight = 270
 
 net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
 cap = cv.VideoCapture(args.input if args.input else 0)
-#cap = cv.VideoCapture("cbum3.jpg")
+#cap = cv.imread("image.jpg")
 
+#imgWidth = cap.shape[1]
+#imgHeight = cap.shape[0]
+#imgChanel = cap.shape[2]
+
+
+#img2 = np.zeros([imgWidth, imgHeight, imgChanel], np.uint8)  # criacao imagem preta
+
+#while cv.waitKey(1) < 0:
+    #frame = cv.imread("cbum3.jpg")
 while cv.waitKey(1) < 0:
     hasFrame, frame = cap.read()
     if not hasFrame:
@@ -70,12 +82,24 @@ while cv.waitKey(1) < 0:
         idTo = BODY_PARTS[partTo]
 
         if points[idFrom] and points[idTo]:
-            cv.line(frame, points[idFrom], points[idTo], (0, 255, 0), 3)
-            cv.ellipse(frame, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
-            cv.ellipse(frame, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
+            print(points[idTo][0])
+            distEuc = dist.euclidean((points[idTo][0], points[idTo][1]), (points[idFrom][0], points[idFrom][1]))
+            if distEuc <=300:
+                print(distEuc)
+                print(points[idFrom])
+                print(points[idTo])
+                cv.line(frame, points[idFrom], points[idTo], (0, 255, 0), 3)
+                cv.putText(frame, str(points[idTo][0],) + str(points[idTo][1]), (int(points[idTo][0]), int(points[idTo][1])), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+                cv.ellipse(frame, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
+                cv.ellipse(frame, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
+
+            #cv.line(img2, points[idFrom], points[idTo], (0, 255, 0), 3)
+            #cv.ellipse(img2, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
+            #cv.ellipse(img2, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
 
     t, _ = net.getPerfProfile()
     freq = cv.getTickFrequency() / 1000
     cv.putText(frame, '%.2fms' % (t / freq), (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
 
     cv.imshow('OpenPose using OpenCV', frame)
+    #cv.imshow('OpenPose using OpenCV2', img2)
