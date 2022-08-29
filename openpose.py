@@ -31,7 +31,7 @@ inHeight = 368
 
 net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
-#cap = cv.VideoCapture(args.input if args.input else 0)
+#cap = cv.VideoCapture(args.input if args.input else 0)0
 #cap = cv.imread("image.jpg")
 
 #imgWidth = cap.shape[1]
