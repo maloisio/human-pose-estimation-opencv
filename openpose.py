@@ -8,7 +8,7 @@ from scipy.spatial import distance as dist
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', help='Path to image or video. Skip to capture frames from camera')
-parser.add_argument('--thr', default=0.1, type=float, help='Threshold value for pose parts heat map')
+parser.add_argument('--thr', default=0.04, type=float, help='Threshold value for pose parts heat map')
 parser.add_argument('--width', default=368, type=int, help='Resize input to specific width.')
 parser.add_argument('--height', default=368, type=int, help='Resize input to specific height.')
 
@@ -26,12 +26,12 @@ POSE_PAIRS = [ ["Neck", "RShoulder"], ["Neck", "LShoulder"], ["RShoulder", "RElb
                ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["Nose", "REye"],
                ["REye", "REar"], ["Nose", "LEye"], ["LEye", "LEar"],["RShoulder", "LShoulder"] ]
 
-inWidth = 270
-inHeight = 270
+inWidth = 368
+inHeight = 368
 
 net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
-cap = cv.VideoCapture(args.input if args.input else 0)
+#cap = cv.VideoCapture(args.input if args.input else 0)
 #cap = cv.imread("image.jpg")
 
 #imgWidth = cap.shape[1]
@@ -41,13 +41,13 @@ cap = cv.VideoCapture(args.input if args.input else 0)
 
 #img2 = np.zeros([imgWidth, imgHeight, imgChanel], np.uint8)  # criacao imagem preta
 
-#while cv.waitKey(1) < 0:
-    #frame = cv.imread("cbum3.jpg")
 while cv.waitKey(1) < 0:
-    hasFrame, frame = cap.read()
-    if not hasFrame:
-        cv.waitKey()
-        break
+    frame = cv.imread("cbum3.jpg")
+#while cv.waitKey(1) < 0:
+ #   hasFrame, frame = cap.read()
+  #  if not hasFrame:
+   #     cv.waitKey()
+    #    break
 
     frameWidth = frame.shape[1]
     frameHeight = frame.shape[0]
@@ -82,16 +82,33 @@ while cv.waitKey(1) < 0:
         idTo = BODY_PARTS[partTo]
 
         if points[idFrom] and points[idTo]:
-            print(points[idTo][0])
+            #print(points[idTo][0])
             distEuc = dist.euclidean((points[idTo][0], points[idTo][1]), (points[idFrom][0], points[idFrom][1]))
             if distEuc <=300:
                 print(distEuc)
-                print(points[idFrom])
-                print(points[idTo])
+                #print(points[idFrom])
+                #print(points[idTo])
                 cv.line(frame, points[idFrom], points[idTo], (0, 255, 0), 3)
-                cv.putText(frame, str(points[idTo][0],) + str(points[idTo][1]), (int(points[idTo][0]), int(points[idTo][1])), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+                cv.putText(frame, str(int(distEuc)), (int(points[idTo][0]), int(points[idTo][1])), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
                 cv.ellipse(frame, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
                 cv.ellipse(frame, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
+                if (points[4] and points[7]) is not None:
+                    if points[4][1] and points[7][1] < points[0][1]:
+                        print("esse " + str(points[4][1])+", "+ str(points[7][1]))
+                        print("esse " + str(points[0][1]))
+                        cv.putText(frame, "Assalto", (0,70), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+
+                #if (points[9] and points[12]) is not None:
+                  #  print("Nao e none")
+                   # if points[12][0] < points[9][0]:#quando peca cruzado
+                    #    #cv.line(frame, points[idFrom], points[idTo], (0, 255, 255), 3)
+                     #   cv.line(frame, points[9], points[8], (0, 255, 255), 3)
+                      #  cv.line(frame, points[12], points[11], (0, 255, 255), 3)
+                #else:
+                 #   print("nONE")
+
+
+
 
             #cv.line(img2, points[idFrom], points[idTo], (0, 255, 0), 3)
             #cv.ellipse(img2, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
@@ -100,6 +117,8 @@ while cv.waitKey(1) < 0:
     t, _ = net.getPerfProfile()
     freq = cv.getTickFrequency() / 1000
     cv.putText(frame, '%.2fms' % (t / freq), (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
+    cv.putText(frame, str(cv2.CAP_PROP_FPS), (10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
 
     cv.imshow('OpenPose using OpenCV', frame)
+    cv.imshow('OpenPose using OpenCV2', heatMap)
     #cv.imshow('OpenPose using OpenCV2', img2)
