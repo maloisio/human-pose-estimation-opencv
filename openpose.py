@@ -1,5 +1,7 @@
 # To use Inference Engine backend, specify location of plugins:
 # export LD_LIBRARY_PATH=/opt/intel/deeplearning_deploymenttoolkit/deployment_tools/external/mklml_lnx/lib:$LD_LIBRARY_PATH
+import math
+
 import cv2
 import cv2 as cv
 import numpy as np
@@ -21,7 +23,7 @@ BODY_PARTS = {"Nose": 0, "Neck": 1, "RShoulder": 2, "RElbow": 3, "RWrist": 4,
 
 POSE_PAIRS = [["LShoulder", "RShoulder"], ["RShoulder", "RElbow"],
               ["RElbow", "RWrist"], ["LShoulder", "LElbow"], ["LElbow", "LWrist"],
-              ["Neck", "RHip"], ["RHip", "RKnee"], ["RKnee", "RAnkle"], ["Neck", "LHip"],
+              ["RShoulder", "RHip"], ["RHip", "RKnee"], ["RKnee", "RAnkle"], ["LShoulder", "LHip"],
               ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["LHip", "RHip"]]
 
 inWidth = 255
@@ -30,7 +32,7 @@ net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
 cap = cv.VideoCapture("mauro4.mp4")
 pointsToAngle = []
-
+pointsList = []
 
 # cap = cv.imread("operator1.jpg")
 
@@ -49,12 +51,44 @@ def rescale_frame(frame, percent=50):
     dim = (width, height)
     return cv2.resize(frame, dim, interpolation=cv2.INTER_BITS)
 
+def getBodyAngle(pt1, pt2, pt3):
+    m1 = gradiant(pt1, pt2)
+    m2 = gradiant(pt1, pt3)
+    angR = math.atan((m2 - m1)/(1+(m2*m1)))
+    angD = round(math.degrees(angR))
+    if angD < 0:
+        angD = 180+angD
+    cv.putText(frame, str(angD), pt1, cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+    print(angD)
 
-def lShoulder():
-    print("oi")
+def getAngle(pointList):
+    pt1, pt2, pt3 = pointList
+    m1 = gradiant(pt1, pt2)
+    m2 = gradiant(pt1, pt3)
+    angR = math.atan((m2 - m1)/(1+(m2*m1)))
+    angD = round(math.degrees(angR))
+    if angD < 0:
+        angD = 180+angD
+    print(angD)
+
+def gradiant(pt1, pt2):
+    try:
+        (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
+    except ZeroDivisionError:
+        return 0
+    return (pt2[1] - pt1[1])/(pt2[0]-pt1[0])
 
 
-cv2.namedWindow("Frame")
+def mousePoints(event, x, y, flags, params):
+    if event == cv.EVENT_LBUTTONDOWN:
+        if len(pointsList) >=3:
+            pointsList.clear()
+        cv.circle(frame, (x, y), 5, (0, 0, 255), cv.FILLED)
+        cv.imshow('Frame', frame)
+        pointsList.append([x, y])
+        print(pointsList)
+        getAngle(pointsList)
+
 
 
 while cv.waitKey(1) < 0:
@@ -103,7 +137,7 @@ while cv.waitKey(1) < 0:
             # print(points[idTo][0])
             distEuc = dist.euclidean((points[idTo][0], points[idTo][1]), (points[idFrom][0], points[idFrom][1]))
             if distEuc <= 700:
-                print(distEuc)
+                #print(distEuc)
                 # print(points[idFrom])
                 # print(points[idTo])
                 cv.line(frame, points[idFrom], points[idTo], (0, 255, 0), 1)
@@ -139,16 +173,42 @@ while cv.waitKey(1) < 0:
     cv.putText(frame, '%.2fms' % (t / freq), (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
     cv.putText(frame, str(cv2.CAP_PROP_FPS), (10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
 
+    # ------------------------ANGLES-------------------
+
+    # cotovelo direito
+    if (points[3] and points[2] and points[4]) is not None:
+        getBodyAngle(points[3], points[2], points[4])
+
+    #joelho direito
+    if (points[9] and points[8] and points[10]) is not None:
+        getBodyAngle(points[9], points[8], points[10])
+
+    #cotovelo esquerdo
+    if (points[6] and points[5] and points[7]) is not None:
+        getBodyAngle(points[6], points[5], points[7])
+
+    #joelho esquerdo
+    if (points[12] and points[13] and points[11]) is not None:
+        getBodyAngle(points[12], points[13], points[11])
+
     #cv2.resize(heatMap, (1000,1000), interpolation=cv2.INTER_AREA)
+    if len(pointsList) == 3:
+        getAngle(pointsList)
+
     cv.imshow('Frame', frame)
+    cv.setMouseCallback("Frame", mousePoints)
     cv.imshow('OpenPose using OpenCV2', heatMap)
 
     # cv.imshow('OpenPose using OpenCV2', img2)
+
+
     key = cv2.waitKey(1)
     if key == ord('q'):
         break
     if key == ord('p'):
+
         cv2.waitKey(-1)  # wait until any key is pressed
+
 
 cap.release()
 cv2.destroyAllWindows()
