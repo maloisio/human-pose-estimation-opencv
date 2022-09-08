@@ -2,7 +2,8 @@
 # export LD_LIBRARY_PATH=/opt/intel/deeplearning_deploymenttoolkit/deployment_tools/external/mklml_lnx/lib:$LD_LIBRARY_PATH
 import math
 
-import cv2
+import cvzone
+from cvzone.SelfiSegmentationModule import SelfiSegmentation
 import cv2 as cv
 import numpy as np
 import argparse
@@ -34,13 +35,12 @@ cap = cv.VideoCapture("mauro4.mp4")
 pointsToAngle = []
 pointsList = []
 
+
 # cap = cv.imread("operator1.jpg")
 
 # imgWidth = cap.shape[1]
 # imgHeight = cap.shape[0]
 # imgChanel = cap.shape[2]
-
-# img2 = np.zeros([imgWidth, imgHeight], np.uint8)  # criacao imagem preta
 
 
 # while cv.waitKey(1) < 0:
@@ -49,57 +49,88 @@ def rescale_frame(frame, percent=50):
     width = int(frame.shape[1] * percent / 100)
     height = int(frame.shape[0] * percent / 100)
     dim = (width, height)
-    return cv2.resize(frame, dim, interpolation=cv2.INTER_BITS)
+    return cv.resize(frame, dim, interpolation=cv.INTER_BITS)
 
-def getBodyAngle(pt1, pt2, pt3):
+
+def getRBodyAngle(pt1, pt2, pt3):
     m1 = gradiant(pt1, pt2)
     m2 = gradiant(pt1, pt3)
-    angR = math.atan((m2 - m1)/(1+(m2*m1)))
+    angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
     angD = round(math.degrees(angR))
     if angD < 0:
-        angD = 180+angD
-    cv.putText(frame, str(angD), pt1, cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+        angD = 180 + angD
+    cv.putText(frame2, str(angD), pt1, cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
     print(angD)
+
+
+def getLBodyAngle(pt1, pt2, pt3):
+    m1 = gradiant(pt1, pt2)
+    m2 = gradiant(pt1, pt3)
+    angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
+    angD = round(math.degrees(angR))
+    if angD < 0:
+        angD = 180 + angD
+    cv.putText(frame2, str(angD), pt1, cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 1, cv.LINE_AA)
+    print(angD)
+
 
 def getAngle(pointList):
     pt1, pt2, pt3 = pointList
     m1 = gradiant(pt1, pt2)
     m2 = gradiant(pt1, pt3)
-    angR = math.atan((m2 - m1)/(1+(m2*m1)))
+    angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
     angD = round(math.degrees(angR))
-    if angD < 0:
-        angD = 180+angD
+    if angD <= 0:
+        angD = 180 + angD
     print(angD)
+
 
 def gradiant(pt1, pt2):
     try:
         (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
     except ZeroDivisionError:
-        return 0
-    return (pt2[1] - pt1[1])/(pt2[0]-pt1[0])
+        return 1000
+    return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
 
 
 def mousePoints(event, x, y, flags, params):
     if event == cv.EVENT_LBUTTONDOWN:
-        if len(pointsList) >=3:
+        if len(pointsList) >= 3:
             pointsList.clear()
         cv.circle(frame, (x, y), 5, (0, 0, 255), cv.FILLED)
         cv.imshow('Frame', frame)
         pointsList.append([x, y])
         print(pointsList)
         getAngle(pointsList)
+def nothing():
+    pass
 
 
+while True:
 
-while cv.waitKey(1) < 0:
     hasFrame, frame = cap.read()
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    #frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
 
     frame = rescale_frame(frame, percent=50)
     frame = frame[50:700, 300:730]
-    if not hasFrame:
-        cv.waitKey()
-        break
+    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+
+    rgb_planes = cv.split(frame)
+
+    result_planes = []
+    result_norm_planes = []
+    for plane in rgb_planes:
+        dilated_img = cv.dilate(plane, np.ones((7, 7), np.uint8))
+        bg_img = cv.medianBlur(dilated_img, 21)
+        diff_img = 255 - cv.absdiff(plane, bg_img)
+        norm_img = cv.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8UC1)
+        result_planes.append(diff_img)
+        result_norm_planes.append(norm_img)
+
+        frame = cv.merge(result_planes)
+        result_norm = cv.merge(result_norm_planes)
+
+    frame2 = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)  # criacao imagem preta
 
     frameWidth = frame.shape[1]
     frameHeight = frame.shape[0]
@@ -137,14 +168,18 @@ while cv.waitKey(1) < 0:
             # print(points[idTo][0])
             distEuc = dist.euclidean((points[idTo][0], points[idTo][1]), (points[idFrom][0], points[idFrom][1]))
             if distEuc <= 700:
-                #print(distEuc)
+                # print(distEuc)
                 # print(points[idFrom])
                 # print(points[idTo])
                 cv.line(frame, points[idFrom], points[idTo], (0, 255, 0), 1)
-                #cv.putText(frameCrop, str(int(distEuc)), (int(points[idTo][0]), int(points[idTo][1])),
-                           #cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
+                cv.line(frame2, points[idFrom], points[idTo], (0, 255, 0), 1)
+                cv.imshow('Frame2', frame2)
+                # cv.putText(frameCrop, str(int(distEuc)), (int(points[idTo][0]), int(points[idTo][1])),
+                # cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv.LINE_AA)
                 cv.ellipse(frame, points[idFrom], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
-                cv.ellipse(frame, points[idTo], (2, 2), 0, 0, 360, (0, 255, 255), cv.FILLED)
+                cv.ellipse(frame2, points[idFrom], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
+                cv.ellipse(frame, points[idTo], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
+                cv.ellipse(frame2, points[idTo], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
 
                 # if (points[4] and points[7]) is not None:
                 # if points[4][1] and points[7][1] < points[0][1]:
@@ -165,50 +200,58 @@ while cv.waitKey(1) < 0:
             # cv.ellipse(img2, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
             # cv.ellipse(img2, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
 
-
-
-
     t, _ = net.getPerfProfile()
     freq = cv.getTickFrequency() / 1000
     cv.putText(frame, '%.2fms' % (t / freq), (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
-    cv.putText(frame, str(cv2.CAP_PROP_FPS), (10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
+    cv.putText(frame, str(cv.CAP_PROP_FPS), (10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
 
     # ------------------------ANGLES-------------------
 
     # cotovelo direito
     if (points[3] and points[2] and points[4]) is not None:
-        getBodyAngle(points[3], points[2], points[4])
+        if points[3][0] > points[4][0]:
+            getRBodyAngle(points[3], points[4], points[2])
+        else:
+            getRBodyAngle(points[3], points[2], points[4])
 
-    #joelho direito
+    # joelho direito
     if (points[9] and points[8] and points[10]) is not None:
-        getBodyAngle(points[9], points[8], points[10])
+        if points[9][0] > points[10][0]:
+            getRBodyAngle(points[9], points[10], points[8])
+        else:
+            getRBodyAngle(points[9], points[8], points[10])
 
-    #cotovelo esquerdo
-    if (points[6] and points[5] and points[7]) is not None:
-        getBodyAngle(points[6], points[5], points[7])
+    # cotovelo esquerdo
+    if (points[6] and points[7] and points[5]) is not None:
+        if points[6][0] < points[7][0]:
+            getLBodyAngle(points[6], points[5], points[7])
+        else:
+            getLBodyAngle(points[6], points[7], points[5])
 
-    #joelho esquerdo
+    # joelho esquerdo
     if (points[12] and points[13] and points[11]) is not None:
-        getBodyAngle(points[12], points[13], points[11])
+        if points[12][0] < points[13][0]:
+            getLBodyAngle(points[12], points[11], points[13])
+        else:
+            getLBodyAngle(points[12], points[13], points[11])
 
-    #cv2.resize(heatMap, (1000,1000), interpolation=cv2.INTER_AREA)
     if len(pointsList) == 3:
         getAngle(pointsList)
 
     cv.imshow('Frame', frame)
+    cv.imshow('Frame2', frame2)
+    #cv.imshow('shadows_out.png', result)
+    #cv.imshow('shadows_out_norm.png', result_norm)
+
     cv.setMouseCallback("Frame", mousePoints)
+    heatMap = cv.resize(heatMap, [400,400], interpolation=cv.INTER_BITS)
     cv.imshow('OpenPose using OpenCV2', heatMap)
 
-    # cv.imshow('OpenPose using OpenCV2', img2)
-
-
-    key = cv2.waitKey(1)
+    key = cv.waitKey(1)
     if key == ord('q'):
         break
     if key == ord('p'):
-
-        cv2.waitKey(-1)  # wait until any key is pressed
-
+        cv.waitKey(-1)  # wait until any key is pressed
 
 cap.release()
-cv2.destroyAllWindows()
+cv.destroyAllWindows()
