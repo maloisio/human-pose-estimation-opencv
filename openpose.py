@@ -1,9 +1,6 @@
 # To use Inference Engine backend, specify location of plugins:
 # export LD_LIBRARY_PATH=/opt/intel/deeplearning_deploymenttoolkit/deployment_tools/external/mklml_lnx/lib:$LD_LIBRARY_PATH
 import math
-
-import cvzone
-from cvzone.SelfiSegmentationModule import SelfiSegmentation
 import cv2 as cv
 import numpy as np
 import argparse
@@ -11,7 +8,7 @@ from scipy.spatial import distance as dist
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', help='Path to image or video. Skip to capture frames from camera')
-parser.add_argument('--thr', default=0.1, type=float, help='Threshold value for pose parts heat map')
+parser.add_argument('--thr', default=0.16, type=float, help='Threshold value for pose parts heat map')
 parser.add_argument('--width', default=368, type=int, help='Resize input to specific width.')
 parser.add_argument('--height', default=368, type=int, help='Resize input to specific height.')
 
@@ -45,6 +42,10 @@ pointsList = []
 
 # while cv.waitKey(1) < 0:
 # frame = cv.imread("mauro.mp4")
+
+
+
+
 def rescale_frame(frame, percent=50):
     width = int(frame.shape[1] * percent / 100)
     height = int(frame.shape[0] * percent / 100)
@@ -55,7 +56,10 @@ def rescale_frame(frame, percent=50):
 def getRBodyAngle(pt1, pt2, pt3):
     m1 = gradiant(pt1, pt2)
     m2 = gradiant(pt1, pt3)
-    angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
+    try:
+        angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
+    except ZeroDivisionError:
+        angR = 0
     angD = round(math.degrees(angR))
     if angD < 0:
         angD = 180 + angD
@@ -66,7 +70,10 @@ def getRBodyAngle(pt1, pt2, pt3):
 def getLBodyAngle(pt1, pt2, pt3):
     m1 = gradiant(pt1, pt2)
     m2 = gradiant(pt1, pt3)
-    angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
+    try:
+        angR = math.atan((m2 - m1) / (1 + (m2 * m1)))
+    except ZeroDivisionError:
+        angR = 0
     angD = round(math.degrees(angR))
     if angD < 0:
         angD = 180 + angD
@@ -102,33 +109,53 @@ def mousePoints(event, x, y, flags, params):
         pointsList.append([x, y])
         print(pointsList)
         getAngle(pointsList)
-def nothing():
-    pass
+
+
+
+def drawBox(frame):
+    global boolean
+    x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+    cv.rectangle(frame, (x, y), ((x + w), (y + h)), (255, 0, 255), 3, 1)
+    print(bbox)
+    boolean = False
+    return x, y, w, h
+
+# hasFrame, frame = cap.read()
+# frame = rescale_frame(frame, percent=50)
+bbox = []
+# cv.destroyWindow("Tracking")
+
+def initConfig():
+    hasFrame, frame = cap.read()
+    frame = rescale_frame(frame, percent=50)
+    bbox = cv.selectROI("Frame", frame, False)
+    return bbox
+
+boolean = False
+def configScale(frame, boolean):
+    global bbox
+    if boolean == True:
+        bbox.append(cv.selectROI("Frame", frame, False))
+        x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+        return frame[y: y + h, x: x + w]
 
 
 while True:
-
     hasFrame, frame = cap.read()
-    #frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
 
+    #frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     frame = rescale_frame(frame, percent=50)
+
+    #x, y, w, h = drawBox(frame)
+
+    #frame = configScale(frame, False)
+
+
     frame = frame[50:700, 300:730]
+    frame = cv.resize(frame, [368, 368], interpolation=cv.INTER_BITS)
+
+    #frame3 = cv.normalize(frame, (255,255), 0 , cv.NORM_L1)
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-
-    rgb_planes = cv.split(frame)
-
-    result_planes = []
-    result_norm_planes = []
-    for plane in rgb_planes:
-        dilated_img = cv.dilate(plane, np.ones((7, 7), np.uint8))
-        bg_img = cv.medianBlur(dilated_img, 21)
-        diff_img = 255 - cv.absdiff(plane, bg_img)
-        norm_img = cv.normalize(diff_img, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8UC1)
-        result_planes.append(diff_img)
-        result_norm_planes.append(norm_img)
-
-        frame = cv.merge(result_planes)
-        result_norm = cv.merge(result_norm_planes)
 
     frame2 = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)  # criacao imagem preta
 
@@ -238,20 +265,24 @@ while True:
     if len(pointsList) == 3:
         getAngle(pointsList)
 
+    frame = cv.resize(frame, [400, 400], interpolation=cv.INTER_BITS)
     cv.imshow('Frame', frame)
     cv.imshow('Frame2', frame2)
+
     #cv.imshow('shadows_out.png', result)
     #cv.imshow('shadows_out_norm.png', result_norm)
 
     cv.setMouseCallback("Frame", mousePoints)
     heatMap = cv.resize(heatMap, [400,400], interpolation=cv.INTER_BITS)
-    cv.imshow('OpenPose using OpenCV2', heatMap)
+    cv.imshow('Pontos', heatMap)
 
     key = cv.waitKey(1)
     if key == ord('q'):
         break
     if key == ord('p'):
         cv.waitKey(-1)  # wait until any key is pressed
+    if key == ord('r'):
+        configScale(frame, True)
 
 cap.release()
 cv.destroyAllWindows()
