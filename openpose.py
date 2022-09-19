@@ -44,8 +44,6 @@ pointsList = []
 # frame = cv.imread("mauro.mp4")
 
 
-
-
 def rescale_frame(frame, percent=50):
     width = int(frame.shape[1] * percent / 100)
     height = int(frame.shape[0] * percent / 100)
@@ -111,7 +109,6 @@ def mousePoints(event, x, y, flags, params):
         getAngle(pointsList)
 
 
-
 def drawBox(frame):
     global boolean
     x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
@@ -120,9 +117,12 @@ def drawBox(frame):
     boolean = False
     return x, y, w, h
 
+
 # hasFrame, frame = cap.read()
 # frame = rescale_frame(frame, percent=50)
 bbox = []
+
+
 # cv.destroyWindow("Tracking")
 
 def initConfig():
@@ -131,7 +131,10 @@ def initConfig():
     bbox = cv.selectROI("Frame", frame, False)
     return bbox
 
+
 boolean = False
+
+
 def configScale(frame, boolean):
     global bbox
     if boolean == True:
@@ -140,21 +143,23 @@ def configScale(frame, boolean):
         return frame[y: y + h, x: x + w]
 
 
+paintedPoints = []
+savedPaintedPoints = []
+
 while True:
     hasFrame, frame = cap.read()
 
-    #frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    # frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     frame = rescale_frame(frame, percent=50)
 
-    #x, y, w, h = drawBox(frame)
+    # x, y, w, h = drawBox(frame)
 
-    #frame = configScale(frame, False)
-
+    # frame = configScale(frame, False)
 
     frame = frame[50:700, 300:730]
-    frame = cv.resize(frame, [368, 368], interpolation=cv.INTER_BITS)
+    frame = cv.resize(frame, [255, 255], interpolation=cv.INTER_BITS)
 
-    #frame3 = cv.normalize(frame, (255,255), 0 , cv.NORM_L1)
+    # frame3 = cv.normalize(frame, (255,255), 0 , cv.NORM_L1)
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
 
     frame2 = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)  # criacao imagem preta
@@ -192,6 +197,13 @@ while True:
         idTo = BODY_PARTS[partTo]
 
         if points[idFrom] and points[idTo]:
+            # if len(paintedPoints) <= 1:
+            paintedPoints.append(points[4])
+            savedPaintedPoints.append(points[4])
+
+            # else:
+            #   paintedPoints.clear()
+
             # print(points[idTo][0])
             distEuc = dist.euclidean((points[idTo][0], points[idTo][1]), (points[idFrom][0], points[idFrom][1]))
             if distEuc <= 700:
@@ -207,6 +219,22 @@ while True:
                 cv.ellipse(frame2, points[idFrom], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
                 cv.ellipse(frame, points[idTo], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
                 cv.ellipse(frame2, points[idTo], (2, 2), 0, 0, 360, (0, 0, 255), cv.FILLED)
+
+                if paintedPoints[len(paintedPoints) - 1] is None:
+                    paintedPoints[len(paintedPoints) - 1] = paintedPoints[len(paintedPoints) - 2]
+                else:
+                    try:
+                        for paintedPoints[0] in paintedPoints:
+                            # cv.ellipse(frame, (paintedPoints[0][0], paintedPoints[0][1]), (2, 2), 0, 0, 360, (0, 255, 255), cv.FILLED)
+                            cv.ellipse(frame2, (paintedPoints[0][0], paintedPoints[0][1]), (2, 2), 0, 0, 360, (0, 255, 255),
+                                   cv.FILLED)
+                            if len(paintedPoints) > 2:
+                                for paintedPoints[0] in paintedPoints:
+                                 cv.line(frame, (paintedPoints[len(paintedPoints) - 2][0], paintedPoints[len(paintedPoints) - 2][1]),
+                                        (paintedPoints[len(paintedPoints) - 1][0],
+                                         paintedPoints[len(paintedPoints) - 1][1]), (0, 255, 255), 1)
+                    except:
+                        continue
 
                 # if (points[4] and points[7]) is not None:
                 # if points[4][1] and points[7][1] < points[0][1]:
@@ -226,7 +254,8 @@ while True:
             # cv.line(img2, points[idFrom], points[idTo], (0, 255, 0), 3)
             # cv.ellipse(img2, points[idFrom], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
             # cv.ellipse(img2, points[idTo], (3, 3), 0, 0, 360, (0, 0, 255), cv.FILLED)
-
+            if len(paintedPoints) == 20:
+                paintedPoints.clear()
     t, _ = net.getPerfProfile()
     freq = cv.getTickFrequency() / 1000
     cv.putText(frame, '%.2fms' % (t / freq), (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
@@ -269,11 +298,11 @@ while True:
     cv.imshow('Frame', frame)
     cv.imshow('Frame2', frame2)
 
-    #cv.imshow('shadows_out.png', result)
-    #cv.imshow('shadows_out_norm.png', result_norm)
+    # cv.imshow('shadows_out.png', result)
+    # cv.imshow('shadows_out_norm.png', result_norm)
 
     cv.setMouseCallback("Frame", mousePoints)
-    heatMap = cv.resize(heatMap, [400,400], interpolation=cv.INTER_BITS)
+    heatMap = cv.resize(heatMap, [400, 400], interpolation=cv.INTER_BITS)
     cv.imshow('Pontos', heatMap)
 
     key = cv.waitKey(1)
@@ -281,8 +310,21 @@ while True:
         break
     if key == ord('p'):
         cv.waitKey(-1)  # wait until any key is pressed
+    if key == ord('j'):
+        frame3 = np.zeros((255, 255, 3), np.uint8)
+        for savedPaintedPoints[0] in savedPaintedPoints:
+            cv.ellipse(frame3, (savedPaintedPoints[0][0], savedPaintedPoints[0][1]), (2, 2), 0, 0, 360,
+                           (0, 255, 255),
+                           cv.FILLED)
+            cv.imshow('Frame3', frame3)
+            key = cv.waitKey(1)
+            if key == ord('q'):
+                break
+
     if key == ord('r'):
         configScale(frame, True)
+
+
 
 cap.release()
 cv.destroyAllWindows()
