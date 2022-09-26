@@ -2,6 +2,8 @@
 # export LD_LIBRARY_PATH=/opt/intel/deeplearning_deploymenttoolkit/deployment_tools/external/mklml_lnx/lib:$LD_LIBRARY_PATH
 import math
 from collections import deque
+
+import cv2
 import cv2 as cv
 import numpy as np
 import argparse
@@ -16,7 +18,7 @@ ap.add_argument("-b", "--buffer", type=int, default=32,
 args1 = vars(ap.parse_args())
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', help='Path to image or video. Skip to capture frames from camera')
+parser.add_argument('--input', help='Path to image or video. pSkip to capture frames from camera')
 parser.add_argument('--thr', default=0.16, type=float, help='Threshold value for pose parts heat map')
 parser.add_argument('--width', default=368, type=int, help='Resize input to specific width.')
 parser.add_argument('--height', default=368, type=int, help='Resize input to specific height.')
@@ -33,11 +35,12 @@ POSE_PAIRS = [["LShoulder", "RShoulder"], ["RShoulder", "RElbow"],
               ["RShoulder", "RHip"], ["RHip", "RKnee"], ["RKnee", "RAnkle"], ["LShoulder", "LHip"],
               ["LHip", "LKnee"], ["LKnee", "LAnkle"], ["Neck", "Nose"], ["LHip", "RHip"]]
 
-inWidth = 255
-inHeight = 300
+inWidth = 366
+inHeight = 366
 net = cv.dnn.readNetFromTensorflow("graph_opt.pb")
 
-cap = cv.VideoCapture("mauro4.mp4")
+cap = cv.VideoCapture("serving2.mp4")
+
 pointsToAngle = []
 pointsList = []
 
@@ -122,14 +125,15 @@ while True:
     #---------------loop video---------------
     if not hasFrame:
          cv.destroyAllWindows()
-         cap = cv.VideoCapture("mauro4.mp4")
+         cap = cv.VideoCapture("serving2.mp4")
          hasFrame, frame = cap.read()
 
-    #frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    #frame = cv.rotate(frame, cv.ROTATE_180);
+    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     frame = rescale_frame(frame, percent=50)
 
-    frame = frame[50:700, 300:730]
-    frame = cv.resize(frame, [255, 255], interpolation=cv.INTER_BITS)
+    frame = frame[50:900, 150:600]
+    #frame = cv.resize(frame, [255, 255], interpolation=cv.INTER_BITS)
 
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     frame2 = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)  # criacao imagem preta
@@ -139,7 +143,7 @@ while True:
 
     net.setInput(cv.dnn.blobFromImage(frame, 0.5, (inWidth, inHeight), (0, 0, 0), swapRB=False, crop=False))
     out = net.forward()
-    out = out[:1, :19, :-1, :-1]  # MobileNet output [1, 57, -1, -1], we only need the first 19 elements
+    out = out[:, :19, :, : ]  # MobileNet output [1, 57, -1, -1], we only need the first 19 elements
 
     assert (len(BODY_PARTS) == out.shape[1])
 
